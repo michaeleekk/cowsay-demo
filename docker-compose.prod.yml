@@ -11,8 +11,19 @@ services:
   api:
     build: ./server/
     ports:
-      - 8080:8080
+      - 80:8080
     environment:
       - AMQP_URL=amqp://mq/
     links:
+      - mq
+    depends_on:
+      - mq
+
+  cowsay:
+    build: ./cowsay/
+    environment:
+      - AMQP_URL=amqp://mq/
+    links:
+      - mq
+    depends_on:
       - mq

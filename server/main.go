@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/streadway/amqp"
+	"gopkg.in/matryer/try.v1"
 )
 
 var (
@@ -28,11 +29,20 @@ func failOnError(err error, msg string) {
 }
 
 func init() {
-	connection, err := amqp.Dial(os.Getenv("AMQP_URL"))
+	err := try.Do(func(attempt int) (bool, error) {
+		var err error
+		connection, err = amqp.Dial(os.Getenv("AMQP_URL"))
+		if err != nil {
+			log.Println("Something happened during connection. Retry in 2 seconds...")
+			time.Sleep(2 * time.Second)
+		}
+		return attempt < 5, err
+	})
 	if err != nil {
 		fmt.Println("Connection error")
 		log.Fatal(err)
 	}
+	log.Println("MQ connected.")
 
 	channel, err = connection.Channel()
 	if err != nil {

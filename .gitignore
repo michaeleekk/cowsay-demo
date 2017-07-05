@@ -1,0 +1,4 @@
+*.swp
+
+# golang related
+build

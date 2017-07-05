@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  api:
+    ports:
+      - 12345:12345
+    volumes:
+      - ./server:/go/src/app

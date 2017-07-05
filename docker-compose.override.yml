@@ -6,3 +6,8 @@ services:
       - 12345:12345
     volumes:
       - ./server:/go/src/app
+  cowsay:
+    ports:
+      - 12346:12346
+    volumes:
+      - ./cowsay:/go/src/app

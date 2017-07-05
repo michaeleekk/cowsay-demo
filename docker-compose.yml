@@ -16,3 +16,10 @@ services:
       - AMQP_URL=amqp://mq/
     links:
       - mq
+
+  cowsay:
+    build: ./cowsay/
+    environment:
+      - AMQP_URL=amqp://mq/
+    links:
+      - mq

@@ -2,12 +2,12 @@ package main
 
 import (
 	"os"
-	"net/http"
 	"log"
 	"fmt"
 	"time"
 
 	"github.com/streadway/amqp"
+	"github.com/dhruvbird/go-cowsay"
 )
 
 var (
@@ -15,8 +15,6 @@ var (
 	channel *amqp.Channel
 	task_q amqp.Queue
 	response_q amqp.Queue
-
-	responseChannels = make(map[string]chan string)
 )
 
 
@@ -66,68 +64,28 @@ func init() {
 		false,
 	)
 	failOnError(err, "Failed to set QoS")
-
-
-	go consumer()
 }
 
-func echoHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s", r.FormValue("message"))
-}
-
-func cowsayHandler(w http.ResponseWriter, r *http.Request) {
-	msg := r.FormValue("message")
-	log.Printf("Received response: %q", msg)
-	messageId := msg
-
-	responseChannel := make(chan string)
-	responseChannels[messageId] = responseChannel
-
-	// :TODO: testing decoy message
-	headers := amqp.Table{
-		"MessageId": messageId,
-	}
-	message := amqp.Publishing{
-		Timestamp: time.Now(),
-		ContentType: "text/plain",
-		Body: []byte(msg),
-		Headers: headers,
-	}
-	channel.Publish("", "task_queue", false, false, message)
-
-	response := <-responseChannel
-	fmt.Fprintf(w, "%s", response)
-}
-
-func consumer() {
-	c, err := channel.Consume("response_queue", "", false, false, false, false, nil)
+func main() {
+	c, err := channel.Consume("task_queue", "", false, false, false, false, nil)
 	failOnError(err, "Failed to consume message")
 
 	for message := range c {
 		messageId := message.Headers["MessageId"].(string)
 		log.Printf("Consumer %q %q", messageId, message.Body)
 
-		responseChannel := responseChannels[messageId]
-		if responseChannel != nil {
-			log.Printf("Found a relevant channel")
-			responseChannel <- string(message.Body)
-			delete(responseChannels, messageId)
-		} else {
-			log.Printf("Failed to found a channel")
+		headers := amqp.Table{
+			"MessageId": messageId,
 		}
+		cowsayMessage := cowsay.Format(string(message.Body))
+		responseMessage := amqp.Publishing{
+			Timestamp: time.Now(),
+			ContentType: "text/plain",
+			Body: []byte(cowsayMessage),
+			Headers: headers,
+		}
+		channel.Publish("", "response_queue", false, false, responseMessage)
 		message.Ack(false)
 	}
-}
-
-func main() {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/echo", echoHandler)
-	mux.HandleFunc("/say", cowsayHandler)
-
-	s := http.Server{
-		Addr: ":8080",
-		Handler: mux,
-	}
-	log.Fatal(s.ListenAndServe())
+	log.Printf("Ended.")
 }
